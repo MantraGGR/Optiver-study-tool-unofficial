@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beat the Odds — Practice Simulator</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3646;
+  --text:#e6edf3; --dim:#8b949e; --accent:#f5a623; --green:#3fb950; --red:#f85149; --blue:#58a6ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.5rem;margin-bottom:4px}
+h2{font-size:1.15rem;margin:18px 0 10px}
+.sub{color:var(--dim);font-size:.9rem;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.btn{display:inline-block;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px 22px;font-size:1rem;font-weight:600;cursor:pointer}
+.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.opt{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:8px 0;color:var(--text);font-size:1.05rem;cursor:pointer}
+.opt:hover{border-color:var(--accent)}
+.opt.correct{border-color:var(--green);background:rgba(63,185,80,.12)}
+.opt.wrong{border-color:var(--red);background:rgba(248,81,73,.12)}
+.opt.chosen{border-color:var(--blue)}
+.opt .key{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:var(--border);border-radius:5px;font-size:.8rem;margin-right:10px;color:var(--dim)}
+.timerbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:10px 0 18px}
+.timerbar>div{height:100%;background:var(--accent);transition:width .25s linear}
+.timerbar>div.low{background:var(--red)}
+.meta{display:flex;justify-content:space-between;color:var(--dim);font-size:.85rem;margin-bottom:6px}
+.q{font-size:1.15rem;line-height:1.5;margin-bottom:8px}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--border);color:var(--dim);font-size:.72rem;padding:2px 8px;border-radius:10px;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+.sol{background:var(--panel2);border-left:3px solid var(--blue);border-radius:6px;padding:12px 14px;margin-top:12px;font-size:.95rem;line-height:1.5;color:var(--text)}
+.score-big{font-size:2.6rem;font-weight:700}
+.pass{color:var(--green)} .fail{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+td,th{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left}
+th{color:var(--dim);font-weight:600}
+.bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bar>div{height:100%;background:var(--green)}
+.review-item{border-bottom:1px solid var(--border);padding:14px 0}
+.review-item:last-child{border:none}
+.rmark{font-weight:700}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:.95rem}
+.cheat h3{font-size:1rem;color:var(--accent);margin:16px 0 6px}
+.cheat p{font-size:.93rem;line-height:1.55;color:var(--text);margin-bottom:6px}
+.cheat code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:.88rem}
+.hist{font-size:.9rem;color:var(--dim)}
+.footer-note{color:var(--dim);font-size:.8rem;margin-top:20px;text-align:center}
+a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div style="max-width:760px;margin:0 auto;padding:12px 16px 0"><a href="index.html" style="color:#8b949e;text-decoration:none;font-size:.85rem">← All games</a></div>
+<div class="wrap" id="app"></div>
+<script>
+// ---------- QUESTION BANK (all answers verified programmatically) ----------
+// {c:category, q:question, o:[options], a:answerIndex, s:solution}
+const BANK = [
+// DICE
+{c:"Dice",q:"Roll a fair die until you get a 6. Expected number of rolls?",o:["4","5","6","7"],a:2,s:"Geometric distribution: E = 1/p = 1/(1/6) = 6. Memorize: expected trials to first success = 1/p."},
+{c:"Dice",q:"Roll two fair dice. P(sum = 7)?",o:["1/9","1/6","5/36","7/36"],a:1,s:"6 combos out of 36: (1,6)…(6,1). 6/36 = 1/6. Sum 7 is the most likely sum."},
+{c:"Dice",q:"Roll two fair dice. P(at least one shows a 6)?",o:["1/3","11/36","1/4","5/18"],a:1,s:"Complement: 1 − (5/6)² = 1 − 25/36 = 11/36. Always complement 'at least one'."},
+{c:"Dice",q:"Roll a die twice. P(second roll is strictly greater than the first)?",o:["1/2","5/12","7/12","1/3"],a:1,s:"By symmetry P(>) = P(<). Ties: 6/36 = 1/6. So P(>) = (1 − 1/6)/2 = 5/12."},
+{c:"Dice",q:"Expected value of the maximum of two dice rolls?",o:["3.5","4.0","≈4.47","5.0"],a:2,s:"E[max] = Σ P(max ≥ k) = 161/36 ≈ 4.47. Rule of thumb: max of two dice ≈ 4.5, min ≈ 2.5 (they sum to 7)."},
+{c:"Dice",q:"Expected number of rolls to get two 6s in a row?",o:["36","39","42","48"],a:2,s:"For success run of length 2 with p = 1/6: E = 1/p + 1/p² = 6 + 36 = 42."},
+{c:"Dice",q:"Roll 3 dice. P(all three show different faces)?",o:["1/2","5/9","2/3","5/12"],a:1,s:"(6·5·4)/6³ = 120/216 = 5/9. Sequential: first anything, second 5/6, third 4/6."},
+{c:"Dice",q:"Roll a die 6 times. Expected number of distinct faces seen?",o:["3.0","≈4.0","4.5","5.0"],a:1,s:"Linearity: each face appears with prob 1 − (5/6)⁶ ≈ 0.665. Times 6 ≈ 3.99."},
+{c:"Dice",q:"Expected rolls to see all six faces at least once?",o:["12.5","13.8","14.7","16.2"],a:2,s:"Coupon collector: 6·(1 + 1/2 + 1/3 + 1/4 + 1/5 + 1/6) = 6·2.45 = 14.7."},
+{c:"Dice",q:"You've already seen 5 of the 6 faces. Expected additional rolls to see the last one?",o:["3","5","6","7.35"],a:2,s:"Just a geometric with p = 1/6: E = 6. The past doesn't matter."},
+// COINS
+{c:"Coins",q:"Fair coin. Expected flips until the first head?",o:["1","2","3","4"],a:1,s:"Geometric: 1/p = 1/(1/2) = 2."},
+{c:"Coins",q:"Fair coin. Expected flips until you see HH (two heads in a row)?",o:["4","5","6","8"],a:2,s:"E = 2 + 4 = 6 (run of length 2: 1/p + 1/p²). Overlapping patterns take longer."},
+{c:"Coins",q:"Fair coin. Expected flips until you see HT?",o:["3","4","5","6"],a:1,s:"E = 4. HT is non-overlapping so it's faster than HH (6). Classic asymmetry."},
+{c:"Coins",q:"Flip 4 fair coins. P(exactly 2 heads)?",o:["1/2","3/8","1/4","5/16"],a:1,s:"C(4,2)/2⁴ = 6/16 = 3/8."},
+{c:"Coins",q:"Flip 10 fair coins. P(exactly 5 heads) is closest to?",o:["0.5","0.35","0.25","0.1"],a:2,s:"C(10,5)/2¹⁰ = 252/1024 ≈ 0.246. Central term ≈ 1/√(πn/2) — 'exactly half' is only ~25% at n=10."},
+{c:"Coins",q:"Flipping a fair coin repeatedly, P(TH appears before HH)?",o:["1/2","2/3","3/4","1/4"],a:2,s:"HH comes first only if the first two flips are HH (prob 1/4). Any T before that guarantees TH first. So 3/4."},
+{c:"Coins",q:"Flip a fair coin 3 times. P(more heads than tails)?",o:["1/2","3/8","5/8","1/4"],a:0,s:"Odd number of flips means no ties — by symmetry it's exactly 1/2."},
+{c:"Coins",q:"Biased coin with P(heads) = 1/3. Expected flips until the first head?",o:["2","3","4","6"],a:1,s:"1/p = 3."},
+{c:"Coins",q:"Flip 100 fair coins. P(≥ 60 heads) is closest to?",o:["16%","8%","2.5%","0.5%"],a:2,s:"σ = √(100·¼) = 5. 60 is 2σ above the mean of 50; one-tail beyond 2σ ≈ 2.5% (exact ≈ 2.8%)."},
+{c:"Coins",q:"Flip 100 fair coins. P(exactly 50 heads) is closest to?",o:["50%","25%","8%","1%"],a:2,s:"≈ 1/√(πn/2) = 1/√(50π) ≈ 8%. 'Exactly half' shrinks like 1/√n."},
+// CARDS
+{c:"Cards",q:"Draw 2 cards from a shuffled deck. P(both are aces)?",o:["1/169","1/221","1/26","1/121"],a:1,s:"(4/52)·(3/51) = 1/221. Without replacement — don't square 1/13."},
+{c:"Cards",q:"P(the second card from the top of a shuffled deck is an ace)?",o:["1/13","4/51","1/17","Depends on the first card"],a:0,s:"Symmetry: every position is equally likely to hold an ace. 1/13, same as the top card."},
+{c:"Cards",q:"Expected number of aces in a 5-card hand?",o:["0.25","≈0.38","0.5","0.77"],a:1,s:"Linearity: 5 · (4/52) = 5/13 ≈ 0.385. No independence needed."},
+{c:"Cards",q:"Expected position of the first ace in a shuffled deck?",o:["9.2","10.6","12.0","13.25"],a:1,s:"4 aces split the deck into 5 gaps of average size 48/5 = 9.6. First ace at 9.6 + 1 = 10.6 (= 53/5)."},
+{c:"Cards",q:"P(a 5-card hand contains at least one ace) is closest to?",o:["0.25","0.34","0.44","0.56"],a:1,s:"1 − C(48,5)/C(52,5) ≈ 0.341. Quick estimate: 1 − (48/52)⁵ ≈ 0.33."},
+{c:"Cards",q:"Draw 2 cards. P(they're the same suit)?",o:["1/4","4/17","3/13","1/3"],a:1,s:"Second card must match the first: 12 of the remaining 51 → 12/51 = 4/17 ≈ 0.235."},
+{c:"Cards",q:"Number cards 1–52, shuffle. Expected number landing in their own position?",o:["0","1","2","4"],a:1,s:"Linearity: 52 positions × 1/52 each = 1. True for any deck size."},
+// EXPECTED VALUE
+{c:"Expected Value",q:"You're paid the face value of one die roll. Fair price to play?",o:["3","3.5","4","4.5"],a:1,s:"E = (1+2+…+6)/6 = 3.5."},
+{c:"Expected Value",q:"Die roll pays face value; you may re-roll once (must keep the second). EV with optimal play?",o:["3.5","4","4.25","≈4.67"],a:2,s:"Re-roll is worth 3.5, so keep 4,5,6. E = ½·5 + ½·3.5 = 4.25."},
+{c:"Expected Value",q:"Same game with up to two re-rolls. EV with optimal play?",o:["4.25","4.5","≈4.67","5"],a:2,s:"With two re-rolls left, continuing is worth 4.25, so keep only 5,6: E = ⅓·5.5 + ⅔·4.25 = 14/3 ≈ 4.67."},
+{c:"Expected Value",q:"Pay $1 to play: heads wins $3, tails wins $0. EV of playing?",o:["+$0.50","$0","−$0.50","+$1"],a:0,s:"½·3 − 1 = +0.50."},
+{c:"Expected Value",q:"Bet $1 on 'sum of two dice = 7' at 5-to-1 payout. Your edge?",o:["Exactly fair","+2.8% for you","−2.8% for you","−16.7% for you"],a:0,s:"EV = (1/6)(+5) + (5/6)(−1) = 0. 5-to-1 is the fair odds for a 1/6 event."},
+{c:"Expected Value",q:"A number is drawn uniformly from 1–100 and you're paid that amount. Fair price?",o:["49.5","50","50.5","51"],a:2,s:"Mean of 1…100 = (1+100)/2 = 50.5."},
+// GAMBLER'S RUIN
+{c:"Ruin & Walks",q:"You have $1, opponent has $2. Fair $1 bets until someone is broke. P(you win everything)?",o:["1/4","1/3","1/2","2/5"],a:1,s:"Fair-game ruin: P(win) = your stake / total = 1/3. Your win prob is proportional to your bankroll."},
+{c:"Ruin & Walks",q:"Bankroll $30, fair $1 coin flips, stop at $100 or $0. P(reaching $100)?",o:["0.30","0.35","0.43","0.50"],a:0,s:"30/100 = 0.30. Fair game → probability = fraction of the total you hold."},
+{c:"Ruin & Walks",q:"Symmetric ±1 walk between absorbing barriers 0 and 10, starting at 5. Expected steps until absorption?",o:["10","25","50","100"],a:1,s:"E = k(N−k) = 5·5 = 25. Memorize: start k, barriers 0 and N → k(N−k) steps."},
+{c:"Ruin & Walks",q:"A stock moves ±$1 with equal probability each day. P(back at its start after 100 days) is closest to?",o:["50%","25%","8%","1%"],a:2,s:"C(100,50)/2¹⁰⁰ ≈ 1/√(50π) ≈ 8%. Same as 'exactly half heads'."},
+{c:"Ruin & Walks",q:"Symmetric random walk on the integers starting at 0. P(it ever returns to 0)?",o:["1/2","2/3","≈0.84","1"],a:3,s:"1D symmetric walk is recurrent — returns with probability 1 (though expected return time is infinite)."},
+// BAYES
+{c:"Bayes",q:"A family has two children and at least one is a boy. P(both are boys)?",o:["1/2","1/3","1/4","2/3"],a:1,s:"Equally likely: BB, BG, GB (GG excluded). BB is 1 of 3 → 1/3."},
+{c:"Bayes",q:"Disease prevalence 1/1000; test is 99% accurate both ways. P(disease | positive) is closest to?",o:["99%","50%","9%","1%"],a:2,s:"True positives ≈ 0.99/1000; false positives ≈ 10/1000. So ≈ 1/11 ≈ 9%. Base rates dominate."},
+{c:"Bayes",q:"Monty Hall: 3 doors, you pick one, host opens an empty other door. You switch. P(win)?",o:["1/2","1/3","2/3","3/4"],a:2,s:"Your first pick was right 1/3 of the time; switching wins whenever it was wrong: 2/3."},
+{c:"Bayes",q:"Two dice rolled; you're told at least one shows a 6. P(sum = 7)?",o:["1/6","2/11","1/11","1/3"],a:1,s:"11 outcomes contain a 6. Of those, sum 7: (1,6),(6,1) → 2/11."},
+{c:"Bayes",q:"A coin is picked 50/50 from {fair, two-headed} and flips 3 heads. P(it's the two-headed one)?",o:["3/4","4/5","8/9","1/2"],a:2,s:"Likelihoods 1 vs 1/8 with equal priors → 1/(1+1/8) = 8/9."},
+{c:"Bayes",q:"A die is rolled and you're told the result is even. P(it's a 6)?",o:["1/6","1/3","1/2","1/4"],a:1,s:"Even outcomes {2,4,6} equally likely → 1/3."},
+// STREAKS
+{c:"Streaks",q:"P(at least one 6 in 4 rolls of a die) is closest to?",o:["0.42","0.48","0.52","0.67"],a:2,s:"1 − (5/6)⁴ ≈ 0.518. Not 4/6 — never add probabilities of non-exclusive events."},
+{c:"Streaks",q:"P(at least one double-6 in 24 rolls of two dice)?",o:["Just under 1/2","Just over 1/2","≈2/3","≈1/3"],a:0,s:"1 − (35/36)²⁴ ≈ 0.491. De Méré's famous problem — it's a losing bet."},
+{c:"Streaks",q:"Independent trials with 1% success rate. Expected trials until the first success?",o:["50","99","100","101"],a:2,s:"1/p = 100."},
+// CLASSICS
+{c:"Classics",q:"Break a stick at two uniform random points. P(the three pieces form a triangle)?",o:["1/2","1/3","1/4","1/6"],a:2,s:"Need every piece < 1/2. Geometric probability on the simplex gives 1/4."},
+{c:"Classics",q:"X, Y uniform on [0,1], independent. E[max(X,Y)]?",o:["1/2","3/5","2/3","3/4"],a:2,s:"E[max of n uniforms] = n/(n+1) → 2/3. (Min is 1/(n+1) = 1/3.)"},
+{c:"Classics",q:"X, Y uniform on [0,1], independent. E[|X − Y|]?",o:["1/4","1/3","1/2","2/5"],a:1,s:"E|X−Y| = E[max] − E[min] = 2/3 − 1/3 = 1/3."},
+{c:"Classics",q:"An ant walks randomly along cube edges. Expected steps from one corner to the opposite corner?",o:["6","8","10","12"],a:2,s:"States by distance 3→2→1→0; solving the equations gives 10."},
+{c:"Classics",q:"Smallest group size where P(two share a birthday) exceeds 1/2?",o:["18","23","32","46"],a:1,s:"The birthday paradox: 23. Pairs grow like n²/2 — 23 people ≈ 253 pairs."},
+{c:"Classics",q:"3 points placed uniformly at random on a circle. P(all lie in some semicircle)?",o:["1/2","5/8","3/4","7/8"],a:2,s:"n points: n/2ⁿ⁻¹. For n = 3: 3/4."},
+{c:"Classics",q:"Two people arrive uniformly at random in an hour; each waits 10 minutes. P(they meet)?",o:["1/6","11/36","1/3","1/4"],a:1,s:"Geometric: 1 − (50/60)² = 1 − 25/36 = 11/36."},
+{c:"Classics",q:"100 plane seats; passenger 1 sits randomly, everyone else takes their own seat if free, else random. P(passenger 100 gets their own seat)?",o:["1/100","1/2","1/e","63/100"],a:1,s:"The chain ends only at seat 1 or seat 100, and by symmetry each is equally likely: 1/2."},
+{c:"Classics",q:"5 people line up in random order. P(Alice is directly next to Bob)?",o:["1/5","2/5","1/2","3/10"],a:1,s:"Treat AB as a block: 2·4!/5! = 2/5. Or: 4 adjacent pairs out of C(5,2) = 10 → 4/10."},
+// EXPANSION SET
+{c:"Dice",q:"Roll two fair dice. P(sum = 8)?",o:["1/6","5/36","1/9","7/36"],a:1,s:"Combos: (2,6),(3,5),(4,4),(5,3),(6,2) → 5/36. Count of ways for sum s ≤ 7 is s−1; for s > 7 it's 13−s."},
+{c:"Dice",q:"Roll two fair dice. Expected value of |difference|?",o:["1.5","≈1.94","2.5","3.0"],a:1,s:"Sum over 36 outcomes gives 70/36 = 35/18 ≈ 1.94. Rough check: it must be under E[max]−E[min] logic ≈ 2."},
+{c:"Dice",q:"Roll two fair dice. Expected value of the minimum?",o:["2.0","≈2.53","3.0","3.5"],a:1,s:"E[min] + E[max] = E[sum] = 7, and E[max] = 161/36 ≈ 4.47, so E[min] = 91/36 ≈ 2.53."},
+{c:"Dice",q:"Roll three fair dice. P(sum = 18)?",o:["1/216","1/108","1/72","1/36"],a:0,s:"Only 6-6-6 works: (1/6)³ = 1/216."},
+{c:"Dice",q:"Roll a die twice. P(both rolls show the same face)?",o:["1/12","1/6","1/36","1/3"],a:1,s:"Whatever the first roll is, the second matches with prob 1/6. (Not 1/36 — that's for one *specific* double.)"},
+{c:"Dice",q:"Expected number of 6s in 12 rolls of a fair die?",o:["1","2","3","2.5"],a:1,s:"Linearity: 12 × 1/6 = 2."},
+{c:"Dice",q:"Roll a fair die until you get an even number. Expected rolls?",o:["1.5","2","3","6"],a:1,s:"p = 1/2, so E = 1/p = 2."},
+{c:"Coins",q:"Fair coin. Expected flips until HHH (three heads in a row)?",o:["8","10","14","16"],a:2,s:"Run of length 3: 2 + 4 + 8 = 14. General: Σ (1/p)ᵏ for k = 1…run length."},
+{c:"Coins",q:"Flip 5 fair coins. P(at least 4 heads)?",o:["1/8","3/16","1/4","5/16"],a:1,s:"C(5,4) + C(5,5) = 6 of 32 → 3/16."},
+{c:"Coins",q:"Flip 6 fair coins. P(exactly 3 heads)?",o:["1/2","3/8","5/16","1/4"],a:2,s:"C(6,3)/2⁶ = 20/64 = 5/16. Even n: 'exactly half' is well below 1/2."},
+{c:"Coins",q:"Flip 2 fair coins. Given at least one is a head, P(both are heads)?",o:["1/2","1/3","1/4","2/3"],a:1,s:"Condition leaves {HH, HT, TH} equally likely → 1/3. Same structure as the two-boys problem."},
+{c:"Coins",q:"A and B alternate flipping a fair coin, A first; first head wins. P(A wins)?",o:["1/2","3/5","2/3","3/4"],a:2,s:"P = p/(1−(1−p)²) = (1/2)/(3/4) = 2/3. First mover wins the tie-symmetry."},
+{c:"Coins",q:"Biased coin, P(tails) = 1/4. Expected flips until the first tails?",o:["2","3","4","8"],a:2,s:"1/p = 4."},
+{c:"Cards",q:"P(the top two cards of a shuffled deck are the same rank)?",o:["1/13","1/17","1/26","3/52"],a:1,s:"Second card must match the first's rank: 3 of 51 remain → 3/51 = 1/17."},
+{c:"Cards",q:"Draw 3 cards. P(all the same suit) is closest to?",o:["0.02","0.05","0.10","0.24"],a:1,s:"(12/51)(11/50) = 22/425 ≈ 0.052."},
+{c:"Cards",q:"Draw 2 cards. P(exactly one ace) is closest to?",o:["0.075","0.145","0.29","0.04"],a:1,s:"2 × (4/52)(48/51) = 32/221 ≈ 0.145. Don't forget the factor of 2 for the two orders."},
+{c:"Cards",q:"Expected number of red cards in a 10-card hand?",o:["4","5","5.5","6"],a:1,s:"Linearity: 10 × 26/52 = 5."},
+{c:"Cards",q:"Deck dealt evenly to 4 players. P(a given player holds the ace of spades)?",o:["13/52 but adjusted","1/4","1/13","13/51"],a:1,s:"The ace lands in one of 4 equal hands — symmetry says 1/4. No computation."},
+{c:"Cards",q:"Expected position of the LAST ace in a shuffled deck?",o:["40","42.4","44","46.8"],a:1,s:"Mirror of the first ace: 53 − 10.6 = 42.4. Symmetry front-to-back."},
+{c:"Expected Value",q:"Roll a die: win the face value if even, lose the face value if odd. EV?",o:["0","+0.5","−0.5","+1"],a:1,s:"(2+4+6)/6 − (1+3+5)/6 = 2 − 1.5 = +0.5."},
+{c:"Expected Value",q:"Win $10 if two cards drawn are both red. Fair price to play?",o:["$2.45","$2.50","$3.00","$5.00"],a:0,s:"10 × (26/52)(25/51) = 10 × 25/102 ≈ $2.45. Slightly under $2.50 — without replacement hurts you."},
+{c:"Expected Value",q:"You're paid $2ⁿ where n = flips until the first head (H on flip 1 pays $2). Fair price?",o:["$2","$4","$8","Unbounded"],a:3,s:"E = Σ (1/2ⁿ)·2ⁿ = 1 + 1 + 1 + … = ∞. The St. Petersburg paradox — EV diverges."},
+{c:"Expected Value",q:"A policy pays out $100 with probability 1%. Fair premium?",o:["$0.50","$1","$2","$5"],a:1,s:"0.01 × 100 = $1."},
+{c:"Expected Value",q:"Lottery ticket costs $1; wins $500 with probability 1/1000. EV of buying?",o:["−$0.50","$0","+$0.50","−$1"],a:0,s:"0.001 × 500 − 1 = −$0.50. You lose half your stake in expectation."},
+{c:"Ruin & Walks",q:"You and an opponent each have $50; fair $1 bets until one is broke. P(you win)?",o:["1/3","1/2","2/3","Depends on order of wins"],a:1,s:"Equal stakes in a fair game → 1/2 by symmetry."},
+{c:"Ruin & Walks",q:"Symmetric ±1 walk from 0. P(it hits +5 before −10)?",o:["1/3","1/2","2/3","3/4"],a:2,s:"P(hit +b before −a) = a/(a+b) = 10/15 = 2/3. The nearer barrier is likelier."},
+{c:"Ruin & Walks",q:"Symmetric ±1 walk between barriers 0 and 9, starting at 3. Expected steps to absorption?",o:["12","18","27","36"],a:1,s:"k(N−k) = 3 × 6 = 18."},
+{c:"Ruin & Walks",q:"Symmetric ±1 walk from 0. P(it is at 0 after exactly 9 steps)?",o:["0","≈8%","≈13%","1/2"],a:0,s:"Parity: after an odd number of ±1 steps you're at an odd position. Exactly 0 is impossible."},
+{c:"Bayes",q:"Urn A has 2 red, 1 blue; urn B has 1 red, 2 blue. Pick an urn 50/50, draw red. P(it was urn A)?",o:["1/2","3/5","2/3","3/4"],a:2,s:"Counts: A gives red 2/3, B gives 1/3. Ratio 2:1 → 2/3."},
+{c:"Bayes",q:"Three cards: one red both sides, one blue both sides, one mixed. Pick one, see a red face. P(other side is red)?",o:["1/2","2/3","1/3","3/4"],a:1,s:"Count red FACES, not cards: 3 red faces, 2 belong to the all-red card → 2/3. Bertrand's box."},
+{c:"Bayes",q:"85% of taxis are green, 15% blue. A witness who is 80% reliable says the taxi was blue. P(it was blue)?",o:["80%","≈59%","≈41%","15%"],a:2,s:"Counts per 100: true blue-calls 15×0.8 = 12; false blue-calls 85×0.2 = 17. 12/29 ≈ 41%. The base rate beats the witness."},
+{c:"Bayes",q:"Machine A makes 80% of parts (1% defective); B makes 20% (10% defective). A part is defective. P(from B)?",o:["2/7","1/2","5/7","10/11"],a:2,s:"Per 1000: A gives 8 defects, B gives 20. 20/28 = 5/7 ≈ 71%."},
+{c:"Bayes",q:"Two dice rolled; you're told the sum is 8. P(at least one die shows 6)?",o:["1/3","2/5","1/2","2/11"],a:1,s:"Sum-8 outcomes: (2,6),(3,5),(4,4),(5,3),(6,2) — five equally likely; two contain a 6 → 2/5."},
+{c:"Streaks",q:"P(no heads in 5 flips of a fair coin)?",o:["1/16","1/32","1/64","5/32"],a:1,s:"(1/2)⁵ = 1/32."},
+{c:"Streaks",q:"Success chance 1/20 per trial. P(at least one success in 20 trials) is closest to?",o:["1/2","0.64","0.86","1"],a:1,s:"1 − (19/20)²⁰ ≈ 0.64. Rule: n trials at 1/n success → ≈ 1 − 1/e ≈ 0.63."},
+{c:"Streaks",q:"Fair coin. P(the first head occurs on exactly the 3rd flip)?",o:["1/2","1/4","1/8","3/8"],a:2,s:"T,T,H: (1/2)³ = 1/8. Geometric pmf: (1−p)ᵏ⁻¹p."},
+{c:"Classics",q:"A machine dispenses 1 of 3 prize types uniformly at random. Expected dispenses to collect all 3?",o:["4.5","5.5","6","7.5"],a:1,s:"Coupon collector: 3·(1 + 1/2 + 1/3) = 5.5."},
+{c:"Classics",q:"A drawer has 10 pairs of socks (20 socks). Grab 2 at random. P(they match)?",o:["1/10","1/19","1/20","2/19"],a:1,s:"First sock is anything; its partner is 1 of the 19 left → 1/19."},
+{c:"Classics",q:"n people throw their hats in a pile and each takes one at random, n large. P(nobody gets their own hat)?",o:["0","≈1/e ≈ 0.37","1/2","≈0.63"],a:1,s:"Derangements: converges to 1/e ≈ 0.37 (and barely moves after n = 5). Complement 0.63 = P(at least one match)."},
+{c:"Classics",q:"4 points placed uniformly at random on a circle. P(all in some semicircle)?",o:["1/4","3/8","1/2","5/8"],a:2,s:"n/2ⁿ⁻¹ = 4/8 = 1/2."},
+{c:"Classics",q:"6 people sit randomly at a round table. P(two particular friends sit adjacent)?",o:["1/3","2/5","1/2","1/6"],a:1,s:"Fix one friend; the other is in 1 of 5 remaining seats, 2 of which are adjacent → 2/5."},
+{c:"Classics",q:"3 uniforms on [0,1]. Expected value of the middle one?",o:["1/3","1/2","3/5","2/3"],a:1,s:"k/(n+1) = 2/4 = 1/2. Also obvious by symmetry."},
+// HARD MIX — multi-concept
+{c:"Hard Mix",q:"Urn: 5 red, 3 blue. Draw 3 without replacement. P(exactly 2 red)?",o:["15/28","1/2","5/14","25/56"],a:0,s:"Hypergeometric: C(5,2)·C(3,1)/C(8,3) = 30/56 = 15/28. Count favorable committees over all committees."},
+{c:"Hard Mix",q:"Urn: 3 red, 2 blue, drawing WITH replacement 3 times. P(exactly 2 red)?",o:["36/125","54/125","27/125","3/5"],a:1,s:"With replacement → binomial: C(3,2)(3/5)²(2/5) = 54/125. Replacement decides hypergeometric vs binomial."},
+{c:"Hard Mix",q:"Biased coin, P(H) = 1/3. Flip 4 times. P(exactly 2 heads)?",o:["8/27","1/3","4/27","16/81"],a:0,s:"C(4,2)(1/3)²(2/3)² = 6·4/81 = 8/27."},
+{c:"Hard Mix",q:"Roll a die, then flip that many fair coins. Expected number of heads?",o:["1.5","1.75","2","3.5"],a:1,s:"Tower property: E[heads] = E[N]·(1/2) = 3.5/2 = 1.75. Condition on the roll, then average."},
+{c:"Hard Mix",q:"Roll a die, then flip that many fair coins. P(zero heads) is closest to?",o:["0.09","0.16","0.25","0.5"],a:1,s:"(1/6)·Σ(1/2)ᵏ for k=1…6 = (1/6)(63/64) = 21/128 ≈ 0.164. Average the six conditional probabilities."},
+{c:"Hard Mix",q:"Coin A has P(H)=0.9, coin B has P(H)=0.1. Pick one 50/50, flip twice: both heads. P(it's coin A)?",o:["9/10","81/82","0.9²","2/3"],a:1,s:"Likelihoods 0.81 vs 0.01, equal priors → 81/82 ≈ 0.99. Two heads is 81× more likely under A."},
+{c:"Hard Mix",q:"Fair coin. Expected flips until the 2nd head (total, not consecutive)?",o:["3","4","6","8"],a:1,s:"Negative binomial: r/p = 2/(1/2) = 4. Each head costs 2 flips on average; no run structure here."},
+{c:"Hard Mix",q:"Expected rolls of a die until you've rolled two 6s (not necessarily in a row)?",o:["12","36","42","24"],a:0,s:"2/(1/6) = 12. Contrast with two 6s IN A ROW = 42 — read carefully which one is asked."},
+{c:"Hard Mix",q:"Choose 3 people from 6 men and 4 women, uniformly. P(at least one woman)?",o:["2/3","3/4","5/6","7/8"],a:2,s:"Complement: all men = C(6,3)/C(10,3) = 20/120 = 1/6 → 5/6."},
+{c:"Hard Mix",q:"Draw 2 cards; both are red. P(both are hearts)?",o:["1/4","6/25","1/2","12/51"],a:1,s:"Given both red, it's 2 draws from 26: C(13,2)/C(26,2) = 78/325 = 6/25 = 0.24 — just under the naive (1/2)² = 1/4."},
+{c:"Hard Mix",q:"Roll two dice repeatedly. Expected rolls until the first sum of 7 or 11?",o:["4","4.5","6","9"],a:1,s:"p = (6+2)/36 = 2/9 → E = 9/2 = 4.5. Combine the counting step with 1/p."},
+{c:"Hard Mix",q:"A biased die makes 6 twice as likely as each other face. Expected value of a roll?",o:["3.5","≈3.86","4.0","4.2"],a:1,s:"Weights: 1/7 each for 1–5, 2/7 for six. E = (1+2+3+4+5)/7 + 12/7 = 27/7 ≈ 3.86."},
+{c:"Hard Mix",q:"Random walk steps +1 with prob 2/3, −1 with prob 1/3, starting at 0. P(it EVER reaches −1)?",o:["1/3","1/2","2/3","1"],a:1,s:"For an upward-biased walk, P(ever drop 1) = q/p = (1/3)/(2/3) = 1/2. Each unit down is another independent factor of q/p."},
+{c:"Hard Mix",q:"Deal cards from a shuffled deck. Expected position of the first heart?",o:["3.5","≈3.79","4","4.33"],a:1,s:"13 hearts make 14 gaps: E = (52+13+1)/(13+1) = 53/14 ≈ 3.79. Same gap trick as the first ace."},
+{c:"Hard Mix",q:"Box: 2 fair coins, 1 double-headed. Pick one, flip twice: HH. P(it's the double-headed one)?",o:["1/2","3/5","2/3","4/5"],a:2,s:"Counts: double-header gives HH always (weight 1/3); fair gives HH 1/4 of the time (weight 2/3 × 1/4 = 1/6). (1/3)/(1/3+1/6) = 2/3."},
+{c:"Hard Mix",q:"Flip 5 fair coins. Given the first is a head, P(exactly 3 heads in total)?",o:["5/16","3/8","1/2","1/4"],a:1,s:"Need exactly 2 heads in the remaining 4 flips: C(4,2)/16 = 3/8. Conditioning just removes one flip."},
+{c:"Hard Mix",q:"A random 4-digit PIN (0000–9999). P(all four digits distinct)?",o:["≈0.30","≈0.40","≈0.50","≈0.65"],a:2,s:"10·9·8·7/10⁴ = 5040/10000 ≈ 0.50. Birthday-style product."},
+{c:"Hard Mix",q:"Flip a fair coin 10 times. Expected number of adjacent HH pairs (positions i, i+1 both heads)?",o:["1.25","2.25","2.5","4.5"],a:1,s:"Linearity over the 9 adjacent pairs, each HH with prob 1/4 → 9/4 = 2.25. Overlaps are fine — linearity doesn't care."},
+{c:"Hard Mix",q:"Urn: 4 red, 4 blue. Draw without replacement until the first red. Expected draws?",o:["1.6","1.8","2","2.25"],a:1,s:"Gap trick: (8+1)/(4+1) = 9/5 = 1.8."},
+{c:"Hard Mix",q:"Roll a die 3 times. P(the results are strictly increasing)?",o:["1/6","5/54","1/9","5/27"],a:1,s:"Pick 3 distinct values C(6,3) = 20; only 1 of the 3! orders is increasing: 20/216 = 5/54. Or: P(distinct)·1/6 = 5/9 · 1/6."},
+{c:"Hard Mix",q:"Roll a die 3 times. P(exactly one 6)?",o:["1/2","25/72","1/4","5/12"],a:1,s:"Binomial: 3·(1/6)(5/6)² = 75/216 = 25/72 ≈ 0.35."},
+// RECURSION — 'the game resets' family
+{c:"Recursion",q:"Ann's coin lands heads with prob 1/4; Ben's coin is fair. They alternate flips, Ann first; first head wins. P(Ann wins)?",o:["1/4","1/3","2/5","1/2"],a:2,s:"After both miss, the game resets: P = 1/4 + (3/4)(1/2)P → (5/8)P = 1/4 → P = 2/5."},
+{c:"Recursion",q:"Ann's coin lands heads with prob p; Ben's is fair. Alternating, Ann first, first head wins. What p makes the game exactly fair?",o:["1/4","1/3","2/5","1/2"],a:1,s:"Set P(Ann) = 1/2 in P = p + (1−p)(1/2)P: 1/2 = p + (1−p)/4 → p = 1/3. Going first compensates for the worse coin."},
+{c:"Recursion",q:"A and B take turns rolling a die, A first. First to roll a 6 wins. P(A wins)?",o:["1/2","6/11","7/12","5/9"],a:1,s:"P = (1/6) + (5/6)(5/6)P → P = (1/6)/(1 − 25/36) = 6/11. First mover edge = p/(1−q²)."},
+{c:"Recursion",q:"A and B take turns rolling a die, A first. First to roll higher than 4 wins. P(A wins)?",o:["1/2","5/9","3/5","2/3"],a:2,s:"p = 1/3 per turn: P = (1/3)/(1 − (2/3)²) = (1/3)/(5/9) = 3/5. Bigger p → bigger first-mover edge."},
+{c:"Recursion",q:"You have $2, opponent $1. Each round you win $1 with prob 1/3, lose $1 with prob 2/3, until someone is broke. P(you win)?",o:["1/3","3/7","1/2","4/7"],a:1,s:"Biased ruin: with r = q/p = 2, P = (1−r^a)/(1−r^N) = (1−4)/(1−8) = 3/7. Your $2 edge almost offsets the bad odds."},
+{c:"Recursion",q:"Flip a fair coin until the first head. P(the number of flips is even)?",o:["1/4","1/3","1/2","2/5"],a:1,s:"P(even) = Σ over T-runs: (1/2)² + (1/2)⁴ + … = (1/4)/(1−1/4) = 1/3. Or: E = q·p·(1 + E-cycle) recursion. Odd is favored — you can stop at flip 1."},
+{c:"Recursion",q:"Roll a die until the first 6. P(it takes an odd number of rolls)?",o:["1/2","5/11","6/11","2/3"],a:2,s:"P(odd) = p/(1−q²) = (1/6)/(11/36) = 6/11 — the same number as the alternating-race first-mover, and for the same reason."},
+{c:"Recursion",q:"Flip a fair coin until you see the same result twice in a row. Expected number of flips?",o:["2.5","3","4","6"],a:1,s:"After flip 1, every flip ends the game with prob 1/2 (match the previous). So 1 + geometric(1/2) = 1 + 2 = 3."},
+{c:"Recursion",q:"You win each point with prob 2/3. First to 2 points wins the match. P(you win the match)?",o:["2/3","16/27","20/27","8/9"],a:2,s:"WW + WLW + LWW = 4/9 + 4/27 + 4/27 = 20/27 ≈ 0.74. Longer matches amplify a per-point edge."},
+// EXPERT — genuinely hard
+{c:"Expert",q:"Expected number of flips of a fair coin to first see the pattern HTH?",o:["8","10","12","14"],a:1,s:"HTH self-overlaps (the tail H can restart it). Conway/first-step gives E = 2³ + 2¹ = 10. Contrast HTT (no overlap) = 8."},
+{c:"Expert",q:"Expected number of flips of a fair coin to first see HHH?",o:["8","10","14","16"],a:2,s:"Run of 3: 2 + 4 + 8 = 14. Each 'level' of the run costs another factor of 1/p."},
+{c:"Expert",q:"Roll three fair dice. Expected value of the maximum?",o:["4.5","≈4.96","5.25","5.5"],a:1,s:"E[max] = Σ P(max ≥ k) = Σ (1 − ((k−1)/6)³) = 119/24 ≈ 4.96. More dice pushes the max toward 6."},
+{c:"Expert",q:"Roll three fair dice. Expected value of the minimum?",o:["1.75","≈2.04","2.5","2.53"],a:1,s:"By the mirror of the max: E[min] = 49/24 ≈ 2.04. (Note min+max here do NOT sum to 7 — that only holds for two dice.)"},
+{c:"Expert",q:"Choose 3 seats at random from a row of 8. P(no two chosen seats are adjacent)?",o:["1/4","5/14","3/8","1/2"],a:1,s:"Stars-and-bars: arrangements with gaps = C(6,3), total = C(8,3). 20/56 = 5/14."},
+{c:"Expert",q:"Chuck-a-luck: bet $1 on a number, roll 3 dice; get $k if your number shows k times (k≥1), else lose $1. EV?",o:["$0","−$0.05","−$0.08","−$0.17"],a:2,s:"EV = −17/216 ≈ −$0.08. It looks fair ('three chances at 1/6!') but the payouts don't cover the overlap — a classic sucker bet."},
+{c:"Expert",q:"Roll a fair die repeatedly until a face repeats. Expected number of rolls?",o:["2.7","3.0","≈3.77","4.5"],a:2,s:"E = Σ P(no repeat yet) = 1 + (5/6) + (5/6)(4/6) + (5/6)(4/6)(3/6) + … ≈ 3.77. The die 'birthday problem'."},
+{c:"Expert",q:"A random permutation of 4 items. P(no item is in its original position)?",o:["1/4","3/8","1/3","5/12"],a:1,s:"Derangements: D₄/4! = 9/24 = 3/8. (D₄ = 9: count arrangements with zero fixed points via inclusion–exclusion.)"},
+{c:"Expert",q:"Roll two fair dice. P(their product is even)?",o:["1/2","2/3","3/4","5/9"],a:2,s:"Complement: product is odd only if BOTH are odd = (1/2)² = 1/4. So 3/4."},
+{c:"Expert",q:"4 doors, one hides a car. You pick one; the host opens 2 other doors, both empty, then offers a switch to the last door. P(win if you switch)?",o:["1/2","5/8","2/3","3/4"],a:3,s:"Your door stays 1/4; the host concentrated the other 3/4 onto the single remaining door. Switch → 3/4."},
+{c:"Expert",q:"You win each point with prob 2/3; first to 3 points wins. P(you win the match)?",o:["8/27","20/27","64/81","2/3"],a:2,s:"Sum P(win with 0,1,2 losses) = p³·[1 + 3q + 6q²] = (8/27)(1 + 1 + 2/3) = 64/81 ≈ 0.79."},
+{c:"Expert",q:"5 people each born in a uniformly random month. P(at least two share a birth month) is closest to?",o:["0.38","0.51","0.62","0.72"],a:2,s:"Complement: 1 − (12·11·10·9·8)/12⁵ ≈ 1 − 0.382 = 0.618. The birthday paradox with 12 'days'."},
+{c:"Expert",q:"Expected number of rolls of a fair die until the cumulative sum first exceeds 4?",o:["1.5","≈1.86","2.5","3.0"],a:1,s:"Condition on the first roll: a 5 or 6 ends it immediately, etc. Working through gives ≈ 1.86 — most single rolls already clear 4."},
+];
+
+// ---------- STATE ----------
+const TEST_N = 15, Q_TIME = 90, TOTAL_TIME = 15*60, PASS = 7;
+let S = {};
+const app = document.getElementById('app');
+const cats = [...new Set(BANK.map(q=>q.c))];
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d;}catch(e){return d;}}
+
+// ---------- HOME ----------
+function home(){
+  clearInterval(S.timer);
+  const hist = load('bto_history',[]);
+  const histHtml = hist.length ? hist.slice(-8).reverse().map(h=>
+    `<tr><td>${h.date}</td><td class="${h.score>=PASS?'pass':'fail'}">${h.score>=0?'+':''}${h.score}</td><td>${h.correct}/${h.n}</td></tr>`).join('') : '';
+  app.innerHTML = `
+  <h1>Beat the Odds — Practice Simulator</h1>
+  <p class="sub">Optiver-style: ${TEST_N} questions · 90s each · 15 min total · +1 correct / −1 wrong · pass at ${PASS}+</p>
+  <div class="card">
+    <h2 style="margin-top:0">Full Test</h2>
+    <p style="color:var(--dim);font-size:.92rem;margin-bottom:14px">Real conditions. ${TEST_N} random questions, hard timer, no feedback until the end. Running out of time on a question counts as wrong.</p>
+    <button class="btn" onclick="startTest()">Start Test</button>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Drill Mode</h2>
+    <p style="color:var(--dim);font-size:.92rem;margin-bottom:14px">Untimed, instant feedback with worked solutions. Pick a category to target weak spots.</p>
+    <div class="row">
+      <select id="catSel"><option value="all">All categories</option>${cats.map(c=>`<option>${c}</option>`).join('')}</select>
+      <button class="btn secondary" onclick="startDrill()">Start Drill</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Cheat Sheet</h2>
+    <p style="color:var(--dim);font-size:.92rem;margin-bottom:14px">The ~20 formulas and reflexes that cover most Beat the Odds questions.</p>
+    <button class="btn secondary" onclick="cheat()">Open Cheat Sheet</button>
+  </div>
+  ${hist.length?`<div class="card"><h2 style="margin-top:0">Recent Tests</h2><table><tr><th>Date</th><th>Score</th><th>Correct</th></tr>${histHtml}</table></div>`:''}
+  <p class="footer-note">Question bank: ${BANK.length} questions across ${cats.length} categories. All answers verified by simulation.</p>`;
+}
+
+// ---------- TEST MODE ----------
+function startTest(){
+  S = {mode:'test', qs:shuffle(BANK).slice(0,TEST_N), i:0, answers:[], score:0,
+       qLeft:Q_TIME, totalLeft:TOTAL_TIME};
+  S.timer = setInterval(tick,1000);
+  renderQ();
+}
+function tick(){
+  S.qLeft--; S.totalLeft--;
+  if(S.totalLeft<=0){ endTest(true); return; }
+  if(S.qLeft<=0){ answer(-1); return; }
+  updateTimers();
+}
+function updateTimers(){
+  const qb=document.getElementById('qbar'), tt=document.getElementById('ttime'), qt=document.getElementById('qtime');
+  if(!qb) return;
+  qb.style.width=(S.qLeft/Q_TIME*100)+'%';
+  qb.className = S.qLeft<=15?'low':'';
+  qt.textContent = S.qLeft+'s';
+  tt.textContent = fmt(S.totalLeft);
+}
+function fmt(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function renderQ(){
+  const q = S.qs[S.i];
+  // shuffle option order, remember mapping
+  const order = shuffle([0,1,2,3]);
+  S.order = order;
+  app.innerHTML = `
+  <div class="meta"><span>Question ${S.i+1} / ${S.qs.length}</span><span>Time left: <b id="ttime">${fmt(S.totalLeft)}</b> · This question: <b id="qtime">${S.qLeft}s</b></span></div>
+  <div class="timerbar"><div id="qbar" style="width:${S.qLeft/Q_TIME*100}%"></div></div>
+  <div class="card">
+    <p class="q">${q.q}</p>
+    ${order.map((oi,pos)=>`<button class="opt" onclick="answer(${oi})"><span class="key">${pos+1}</span>${q.o[oi]}</button>`).join('')}
+  </div>`;
+}
+function answer(oi){
+  const q = S.qs[S.i];
+  S.answers.push({q, chosen:oi, correct: oi===q.a, timedOut: oi===-1});
+  S.score += (oi===q.a) ? 1 : -1;
+  S.i++; S.qLeft = Q_TIME;
+  if(S.i >= S.qs.length) endTest(false); else renderQ();
+}
+function endTest(timeUp){
+  clearInterval(S.timer);
+  const n=S.answers.length, correct=S.answers.filter(a=>a.correct).length;
+  // unanswered questions when total time expires: not counted
+  const hist = load('bto_history',[]);
+  hist.push({date:new Date().toLocaleDateString(), score:S.score, correct, n});
+  store('bto_history',hist);
+  // category breakdown
+  const byCat={};
+  S.answers.forEach(a=>{ byCat[a.q.c]=byCat[a.q.c]||{c:0,t:0}; byCat[a.q.c].t++; if(a.correct)byCat[a.q.c].c++; });
+  const catRows = Object.entries(byCat).map(([c,v])=>
+    `<tr><td>${c}</td><td>${v.c}/${v.t}</td><td style="width:40%"><div class="bar"><div style="width:${v.c/v.t*100}%"></div></div></td></tr>`).join('');
+  const review = S.answers.map((a,i)=>`
+    <div class="review-item">
+      <span class="tag">${a.q.c}</span>
+      <p class="q" style="font-size:1rem">${i+1}. ${a.q.q}</p>
+      <p style="font-size:.92rem;margin-top:4px">
+        <span class="rmark ${a.correct?'pass':'fail'}">${a.correct?'✓ +1':'✗ −1'}</span>
+        &nbsp; Your answer: <b>${a.timedOut?'(time ran out)':a.q.o[a.chosen]}</b>
+        ${a.correct?'':` · Correct: <b class="pass">${a.q.o[a.q.a]}</b>`}
+      </p>
+      <div class="sol">${a.q.s}</div>
+    </div>`).join('');
+  app.innerHTML = `
+  <h1>Result</h1>
+  ${timeUp?'<p class="sub">Overall time expired.</p>':''}
+  <div class="card" style="text-align:center">
+    <div class="score-big ${S.score>=PASS?'pass':'fail'}">${S.score>=0?'+':''}${S.score}</div>
+    <p style="color:var(--dim)">${correct} correct, ${n-correct} wrong of ${n} answered · pass mark ${PASS}</p>
+    <p style="margin-top:8px;font-weight:600" class="${S.score>=PASS?'pass':'fail'}">${S.score>=PASS?'PASS — nice work':'Below pass mark — review below and drill weak categories'}</p>
+  </div>
+  <div class="card"><h2 style="margin-top:0">By Category</h2><table>${catRows}</table></div>
+  <div class="card"><h2 style="margin-top:0">Review</h2>${review}</div>
+  <div class="row" style="margin-bottom:30px">
+    <button class="btn" onclick="startTest()">New Test</button>
+    <button class="btn secondary" onclick="home()">Home</button>
+  </div>`;
+  window.scrollTo(0,0);
+}
+
+// ---------- DRILL MODE ----------
+function startDrill(){
+  const cat = document.getElementById('catSel').value;
+  const pool = cat==='all' ? BANK : BANK.filter(q=>q.c===cat);
+  S = {mode:'drill', qs:shuffle(pool), i:0, c:0, w:0};
+  clearInterval(S.timer);
+  renderDrill();
+}
+function renderDrill(){
+  if(S.i>=S.qs.length){
+    app.innerHTML=`<div class="card" style="text-align:center"><h2>Drill complete</h2>
+    <p style="margin:10px 0">${S.c} correct / ${S.w} wrong</p>
+    <div class="row" style="justify-content:center"><button class="btn secondary" onclick="home()">Home</button></div></div>`;
+    return;
+  }
+  const q=S.qs[S.i], order=shuffle([0,1,2,3]); S.order=order;
+  app.innerHTML = `
+  <div class="meta"><span>Drill · ${S.i+1} / ${S.qs.length}</span><span class="pass">✓ ${S.c}</span></div>
+  <div class="card">
+    <p class="q">${q.q}</p>
+    <div id="opts">${order.map((oi,pos)=>`<button class="opt" id="opt${oi}" onclick="drillAnswer(${oi})"><span class="key">${pos+1}</span>${q.o[oi]}</button>`).join('')}</div>
+    <div id="fb"></div>
+  </div>
+  <button class="btn secondary" onclick="home()">Quit</button>`;
+}
+function drillAnswer(oi){
+  const q=S.qs[S.i];
+  const right = oi===q.a;
+  right?S.c++:S.w++;
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=null);
+  document.getElementById('opt'+q.a).classList.add('correct');
+  if(!right) document.getElementById('opt'+oi).classList.add('wrong');
+  document.getElementById('fb').innerHTML = `<div class="sol">${q.s}</div>
+  <button class="btn" style="margin-top:14px" onclick="S.i++;renderDrill()">Next →</button>`;
+}
+
+// ---------- CHEAT SHEET ----------
+function cheat(){
+  clearInterval(S.timer);
+  app.innerHTML = `
+  <h1>Cheat Sheet</h1>
+  <p class="sub">Turn these into 5-second reflexes before test day.</p>
+  <div class="card cheat">
+    <h3>Geometric (waiting for success)</h3>
+    <p>Expected trials to first success: <code>E = 1/p</code>. Die → 6 rolls, coin → 2 flips, 1% → 100 trials.</p>
+    <p>Run of two successes in a row: <code>1/p + 1/p²</code>. HH → 6 flips, 66 → 42 rolls.</p>
+    <p>P(at least one success in n trials): <code>1 − (1−p)ⁿ</code>. Never add probabilities of non-exclusive events.</p>
+    <h3>Linearity of expectation</h3>
+    <p>Works without independence. Expected count = Σ individual probabilities. Aces in 5 cards: 5·4/52. Fixed points in any shuffle: exactly 1.</p>
+    <h3>Coupon collector</h3>
+    <p>All n types: <code>n·(1 + 1/2 + … + 1/n)</code>. Die (n=6): 14.7. Missing only the last: back to plain geometric.</p>
+    <h3>Gambler's ruin (fair game)</h3>
+    <p>Win probability = your stake / total money. <code>P = a/(a+b)</code>.</p>
+    <p>Expected duration, barriers 0 and N, start k: <code>k(N−k)</code> steps.</p>
+    <h3>Bayes shortcut</h3>
+    <p>Skip the formula — count expected people. Rare disease + good test: compare true positives vs false positives directly. Base rate usually wins.</p>
+    <h3>Symmetry</h3>
+    <p>Any position in a shuffled deck is an ace with prob 1/13. P(X&gt;Y) = (1−P(tie))/2. Odd coin flips → majority-heads is exactly 1/2.</p>
+    <h3>Order statistics on [0,1]</h3>
+    <p>n uniforms: <code>E[max] = n/(n+1)</code>, <code>E[min] = 1/(n+1)</code>, <code>E|X−Y| = 1/3</code> for two.</p>
+    <h3>Normal approximation</h3>
+    <p>n coin flips: mean n/2, <code>σ = √n/2</code>. Beyond 1σ ≈ 16%, 2σ ≈ 2.5%, 3σ ≈ 0.1% (one tail).</p>
+    <p>P(exactly half) ≈ <code>1/√(πn/2)</code> → 8% at n=100.</p>
+    <h3>Pattern races (Penney)</h3>
+    <p>HT beats HH on average (4 vs 6 flips). TH appears before HH with prob 3/4. Overlapping patterns are slow.</p>
+    <h3>Fair-price instinct</h3>
+    <p>Fair payout odds for prob p are (1−p)/p to 1. A 1/6 event is fair at 5-to-1. Price of a uniform draw = the midpoint.</p>
+    <h3>Classic constants worth memorizing</h3>
+    <p>Birthday → 23. Stick triangle → 1/4. Ant across cube → 10. n points in a semicircle → n/2ⁿ⁻¹. Airplane seat → 1/2. Meeting in an hour (10 min wait) → 11/36. Monty Hall switch → 2/3.</p>
+    <h3>Test tactics</h3>
+    <p>Scoring is +1/−1 with pass at 7 of 15 — you need ~11 right. Don't guess blind on hard ones… but with 4 options, eliminating two makes guessing +EV. Sanity-check answers against 1/p, symmetry, or a quick bound before submitting.</p>
+  </div>
+  <button class="btn secondary" style="margin-bottom:30px" onclick="home()">Home</button>`;
+}
+
+// keyboard shortcuts 1-4
+document.addEventListener('keydown',e=>{
+  const k=parseInt(e.key);
+  if(k>=1&&k<=4&&S.order){
+    const oi=S.order[k-1];
+    const btn=document.getElementById('opt'+oi);
+    if(S.mode==='drill'&&btn&&btn.onclick) drillAnswer(oi);
+    else if(S.mode==='test'&&document.querySelector('.opt')) answer(oi);
+  }
+});
+home();
+</script>
+</body>
+</html>

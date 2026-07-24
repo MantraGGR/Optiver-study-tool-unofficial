@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optiver OA — Multi-Game Simulator</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3646;
+  --text:#e6edf3; --dim:#8b949e; --accent:#f5a623; --green:#3fb950; --red:#f85149; --blue:#58a6ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.5rem;margin-bottom:4px}
+h2{font-size:1.15rem;margin:14px 0 8px}
+.sub{color:var(--dim);font-size:.9rem;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.btn{display:inline-block;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px 22px;font-size:1rem;font-weight:600;cursor:pointer}
+.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+.btn:hover{filter:brightness(1.1)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.opt{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:13px 16px;margin:8px 0;color:var(--text);font-size:1.02rem;cursor:pointer}
+.opt:hover{border-color:var(--accent)}
+.opt.correct{border-color:var(--green);background:rgba(63,185,80,.12)}
+.opt.wrong{border-color:var(--red);background:rgba(248,81,73,.12)}
+.opt .key{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:var(--border);border-radius:5px;font-size:.8rem;margin-right:10px;color:var(--dim)}
+.opt .rank{display:inline-block;min-width:26px;height:22px;line-height:22px;text-align:center;background:var(--accent);color:#000;border-radius:5px;font-size:.8rem;margin-right:10px;font-weight:700}
+.timerbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:10px 0 18px}
+.timerbar>div{height:100%;background:var(--accent);transition:width .25s linear}
+.timerbar>div.low{background:var(--red)}
+.meta{display:flex;justify-content:space-between;color:var(--dim);font-size:.85rem;margin-bottom:6px}
+.q{font-size:1.12rem;line-height:1.5;margin-bottom:10px}
+.sol{background:var(--panel2);border-left:3px solid var(--blue);border-radius:6px;padding:12px 14px;margin-top:12px;font-size:.94rem;line-height:1.5}
+.score-big{font-size:2.4rem;font-weight:700}
+.pass{color:var(--green)} .fail{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:.95rem;margin:8px 0}
+td,th{padding:8px 12px;border-bottom:1px solid var(--border);text-align:left}
+th{color:var(--dim);font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.5px}
+.mono{font-variant-numeric:tabular-nums}
+.bid{color:var(--green)} .ask{color:var(--red)}
+input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:1.1rem;width:100%}
+.ivgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+label{color:var(--dim);font-size:.82rem;display:block;margin-bottom:4px}
+.big{font-size:1.7rem;font-weight:700;text-align:center;margin:14px 0;font-variant-numeric:tabular-nums}
+.tagline{color:var(--dim);font-size:.85rem;margin-bottom:12px}
+.statrow{display:flex;gap:20px;justify-content:center;margin:10px 0}
+.stat{text-align:center}
+.stat .v{font-size:1.5rem;font-weight:700}
+.stat .l{color:var(--dim);font-size:.8rem}
+.review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:.93rem;line-height:1.5}
+.review-item:last-child{border:none}
+</style>
+</head>
+<body>
+<div style="max-width:760px;margin:0 auto;padding:12px 16px 0"><a href="index.html" style="color:#8b949e;text-decoration:none;font-size:.85rem">← All games</a></div>
+<div class="wrap" id="app"></div>
+<script>
+const app=document.getElementById('app');
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[ri(0,a.length-1)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=ri(0,i);[a[i],a[j]]=[a[j],a[i]];}return a;};
+const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+let S={};
+
+// ================= HOME =================
+function home(){
+  clearInterval(S.timer); S={};
+  app.innerHTML=`
+  <h1>Optiver OA — Multi-Game Simulator</h1>
+  <p class="sub">Trainers for the non-probability games. Formats reconstructed from public descriptions — expect the real UI to differ, but the skills transfer.</p>
+  <div class="card"><h2 style="margin-top:0">Orderbooks</h2>
+    <p class="tagline">Spot riskless profit across products and their bundles. 10 rounds, 75s each.</p>
+    <button class="btn" onclick="obStart()">Start</button></div>
+  <div class="card"><h2 style="margin-top:0">NumberLogic</h2>
+    <p class="tagline">Sequences, grids, and hidden-operation puzzles. 12 rounds, 45s each.</p>
+    <button class="btn" onclick="nlStart()">Start</button></div>
+  <div class="card"><h2 style="margin-top:0">Likelihood List</h2>
+    <p class="tagline">Read a histogram, scatter plot or table; rank 3 statements most → least likely. +1 / −1 / skip 0. 10 rounds, 60s each.</p>
+    <button class="btn" onclick="llStart()">Start</button></div>
+  <div class="card"><h2 style="margin-top:0">Intervals</h2>
+    <p class="tagline">Estimate a value, set low/high bounds. Aim to capture ~90% with tight intervals. 12 rounds, 25s each.</p>
+    <button class="btn" onclick="ivStart()">Start</button></div>`;
+}
+
+// ================= SHARED TIMER =================
+function startTimer(secs,onTimeout){
+  S.qLeft=secs; S.qMax=secs;
+  clearInterval(S.timer);
+  S.timer=setInterval(()=>{
+    S.qLeft--;
+    const b=document.getElementById('qbar'),t=document.getElementById('qtime');
+    if(b){b.style.width=(S.qLeft/S.qMax*100)+'%';b.className=S.qLeft<=Math.max(5,S.qMax*.2)?'low':'';}
+    if(t)t.textContent=S.qLeft+'s';
+    if(S.qLeft<=0){clearInterval(S.timer);onTimeout();}
+  },1000);
+}
+function head(title,i,n){
+  return `<div class="meta"><span>${title} · ${i+1} / ${n}</span><span>Time: <b id="qtime">${S.qLeft??''}s</b></span></div>
+  <div class="timerbar"><div id="qbar" style="width:100%"></div></div>`;
+}
+
+// ================= ORDERBOOKS =================
+// Books: A, B, C, A+B, A+B+C. Strategies enumerated both directions.
+function obGen(){
+  for(let attempt=0;attempt<80;attempt++){
+    const vA=ri(20,60),vB=ri(20,60),vC=ri(20,60);
+    const mk=(mid,s)=>({bid:mid-s,ask:mid+s});
+    const sA=ri(1,3),sB=ri(1,3),sC=ri(1,3),sAB=ri(2,4),sABC=ri(2,5);
+    // arbitrage injection
+    const scen=pick(['none','none','AB+','AB-','ABC+','ABC-']);
+    let mAB=vA+vB, mABC=vA+vB+vC;
+    const kick=()=>ri(4,9);
+    if(scen==='AB+')mAB+=sAB+sA+sB+kick();      // AB rich → sell AB, buy legs
+    if(scen==='AB-')mAB-=sAB+sA+sB+kick();      // AB cheap → buy AB, sell legs
+    if(scen==='ABC+')mABC+=sABC+sA+sB+sC+kick();
+    if(scen==='ABC-')mABC-=sABC+sA+sB+sC+kick();
+    const bk={A:mk(vA,sA),B:mk(vB,sB),C:mk(vC,sC),'A+B':mk(mAB,sAB),'A+B+C':mk(mABC,sABC)};
+    const strat=[
+      ['Buy A+B, sell A and B',            bk.A.bid+bk.B.bid-bk['A+B'].ask],
+      ['Buy A and B, sell A+B',            bk['A+B'].bid-bk.A.ask-bk.B.ask],
+      ['Buy A+B+C, sell A, B and C',       bk.A.bid+bk.B.bid+bk.C.bid-bk['A+B+C'].ask],
+      ['Buy A, B and C, sell A+B+C',       bk['A+B+C'].bid-bk.A.ask-bk.B.ask-bk.C.ask],
+      ['Buy A+B+C, sell A+B and C',        bk['A+B'].bid+bk.C.bid-bk['A+B+C'].ask],
+      ['Buy A+B and C, sell A+B+C',        bk['A+B+C'].bid-bk['A+B'].ask-bk.C.ask],
+    ];
+    const best=strat.reduce((m,s)=>s[1]>m[1]?s:m,strat[0]);
+    const maxP=Math.max(0,best[1]);
+    if(scen==='none'&&maxP!==0)continue;         // wanted clean no-arb
+    if(scen!=='none'&&maxP<2)continue;           // wanted clear arb
+    // options
+    let opts,ans;
+    if(maxP===0){
+      const fakes=shuffle([2,3,4,5,6,7,8]).slice(0,3).map(x=>'$'+x);
+      opts=shuffle(['No arbitrage',...fakes]); ans=opts.indexOf('No arbitrage');
+    }else{
+      const near=new Set([maxP]);
+      while(near.size<3){const d=maxP+pick([-3,-2,-1,1,2,3]); if(d>0)near.add(d);}
+      opts=shuffle([...[...near].map(x=>'$'+x),'No arbitrage']); ans=opts.indexOf('$'+maxP);
+    }
+    return {bk,opts,ans,maxP,best,
+      sol: maxP===0?'Every bundle trades inside the sum of its legs (and vice versa) — no combination of buys and sells locks in a profit.'
+      :`Best: ${best[0]} → profit $${maxP} per unit. Check each bundle against its parts, both directions: profit = what you SELL at (bids) − what you BUY at (asks).`};
+  }
+  return obGen();
+}
+function obStart(){S={mode:'ob',i:0,n:10,score:0,rev:[]};obNext();}
+function obNext(){
+  if(S.i>=S.n)return summary('Orderbooks');
+  S.q=obGen();
+  const b=S.q.bk;
+  const rows=Object.keys(b).map(k=>`<tr><td><b>${k}</b></td><td class="mono bid">${b[k].bid}</td><td class="mono ask">${b[k].ask}</td></tr>`).join('');
+  app.innerHTML=`${head('Orderbooks',S.i,S.n)}
+  <div class="card">
+    <p class="q">You can <b class="bid">sell at the bid</b> and <b class="ask">buy at the ask</b>, any quantity. What is the maximum riskless profit per unit combination?</p>
+    <table><tr><th>Instrument</th><th>Bid</th><th>Ask</th></tr>${rows}</table>
+    ${S.q.opts.map((o,i)=>`<button class="opt" id="opt${i}" onclick="obAns(${i})"><span class="key">${i+1}</span>${o}</button>`).join('')}
+    <div id="fb"></div>
+  </div>`;
+  startTimer(75,()=>obAns(-1));
+}
+function obAns(i){
+  clearInterval(S.timer);
+  const ok=i===S.q.ans;
+  if(ok)S.score++;
+  S.rev.push({t:`Best: ${S.q.maxP===0?'no arbitrage':S.q.best[0]+' → $'+S.q.maxP}`,ok});
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=null);
+  document.getElementById('opt'+S.q.ans)?.classList.add('correct');
+  if(!ok&&i>=0)document.getElementById('opt'+i)?.classList.add('wrong');
+  document.getElementById('fb').innerHTML=`<div class="sol">${i<0?'<b>Time!</b> ':''}${S.q.sol}</div>
+  <button class="btn" style="margin-top:12px" onclick="S.i++;obNext()">Next →</button>`;
+}
+
+// ================= NUMBERLOGIC =================
+const frac=(n,d)=>{if(d<0){n=-n;d=-d;}return d===1?String(n):n+'/'+d;};
+const fval=s=>{const m=String(s).split('/');return m.length===2?(+m[0])/(+m[1]):+s;};
+function mcStr(q,ans,dists,why){
+  const opts=[ans];
+  for(const d of dists){
+    if(opts.length>=4)break;
+    if(opts.every(o=>Math.abs(fval(o)-fval(d))>1e-9)&&!opts.includes(d))opts.push(d);
+  }
+  let guard=0;
+  while(opts.length<4&&guard++<50){
+    const cand=String(Math.round(fval(ans))+pick([-3,-2,2,3,5,7,-7]));
+    if(opts.every(o=>Math.abs(fval(o)-fval(cand))>1e-9))opts.push(cand);
+  }
+  const sh=shuffle(opts);
+  return {q,opts:sh,ans:sh.indexOf(ans),sol:why};
+}
+function nlSeq(){
+  const kind=pick(['frac','frac','inter','inter','diff2','diff2','fibop','fibop','arith','geo','alt','sq']);
+  if(kind==='frac'){
+    let n=ri(1,5),d=ri(2,7),p=ri(1,4),q=ri(1,4);
+    if(n===d&&p===q)n++;
+    const terms=[];for(let i=0;i<5;i++)terms.push(frac(n+i*p,d+i*q));
+    const an=n+5*p,ad=d+5*q;
+    return mcStr(`What comes next?  <span class="mono"><b>${terms.join(',&nbsp; ')},&nbsp; ?</b></span>`,frac(an,ad),
+      [frac(an+p,ad),frac(an,ad+q),frac(an-1,ad-1),frac(an+1,ad)],
+      `Two separate patterns: numerators +${p}, denominators +${q}. Next: ${frac(an,ad)}. Note the answer is NOT simplified — match the pattern; don't reduce fractions.`);
+  }
+  if(kind==='inter'){
+    const a=ri(2,15),d1=pick([3,4,5,7,-3]),b=ri(20,45),d2=pick([-2,-4,2,6,-6]);
+    const t=[];for(let i=0;i<3;i++){t.push(a+i*d1);t.push(b+i*d2);}
+    const ans=a+3*d1;
+    return mcStr(`What comes next?  <span class="mono"><b>${t.join(', ')}, ?</b></span>`,String(ans),
+      [String(b+3*d2),String(ans+d1),String(ans-d1),String(b+2*d2)],
+      `Interleaved series. Odd positions: ${a}, ${a+d1}, ${a+2*d1} (${d1>=0?'+':''}${d1}) → ${ans}. Even positions: ${b}, ${b+d2}, ${b+2*d2} (${d2>=0?'+':''}${d2}). The 7th term belongs to the first series.`);
+  }
+  if(kind==='diff2'){
+    const t0=ri(1,12),d=ri(2,7),e=ri(1,4);
+    const terms=[t0];let diff=d;
+    for(let i=0;i<4;i++){terms.push(terms.at(-1)+diff);diff+=e;}
+    const ans=terms.at(-1)+diff;
+    return mcStr(`What comes next?  <span class="mono"><b>${terms.join(', ')}, ?</b></span>`,String(ans),
+      [String(ans-e),String(ans+e),String(ans-1),String(ans+2*e)],
+      `Second differences: gaps are ${d}, ${d+e}, ${d+2*e}, ${d+3*e} — growing by ${e} each time. Next gap ${d+4*e} → ${ans}.`);
+  }
+  if(kind==='fibop'){
+    const op=pick([
+      {f:(x,y)=>y*x,w:'each term is the PRODUCT of the previous two',st:[[1,2],[1,3],[2,2],[3,1]]},
+      {f:(x,y)=>y+2*x,w:'each term = previous + 2 × the one before that',st:[[1,3],[2,3],[3,4],[2,5]]},
+      {f:(x,y)=>y+x+1,w:'each term = sum of the previous two, plus 1',st:[[1,2],[2,3],[1,4],[3,3]]},
+      {f:(x,y)=>y-x,w:'each term = previous minus the one before that',st:[[3,8],[5,12],[2,9],[4,11]]},
+    ]);
+    const terms=pick(op.st).slice();
+    while(terms.length<5)terms.push(op.f(terms.at(-2),terms.at(-1)));
+    const ans=op.f(terms.at(-2),terms.at(-1));
+    return mcStr(`What comes next?  <span class="mono"><b>${terms.join(', ')}, ?</b></span>`,String(ans),
+      [String(terms.at(-1)+terms.at(-2)),String(ans+1),String(ans-2),String(2*terms.at(-1))],
+      `Fibonacci-style: ${op.w}. → ${ans}.`);
+  }
+  let terms=[],ans,why;
+  if(kind==='arith'){const a=ri(2,30),d=pick([3,4,6,7,9,11,-4,-6]);terms=[0,1,2,3,4].map(i=>a+i*d);ans=a+5*d;why=`Arithmetic: ${d>=0?'+':''}${d} each step.`;}
+  if(kind==='geo'){const a=ri(2,6),r=pick([2,3]);terms=[0,1,2,3].map(i=>a*r**i);ans=a*r**4;why=`Geometric: ×${r} each step.`;}
+  if(kind==='alt'){const a=ri(5,20),p=ri(3,9),q=ri(2,8)+10;terms=[a,a+p,a+p+q,a+2*p+q,a+2*p+2*q];ans=a+3*p+2*q;why=`Alternating: +${p}, +${q}, +${p}, +${q}…`;}
+  if(kind==='sq'){const k=ri(-3,3),s=ri(2,5);terms=[0,1,2,3,4].map(i=>(s+i)**2+k);ans=(s+5)**2+k;why=`Squares ${k===0?'':(k>0?'+ '+k:'− '+(-k))}: ${s}², ${s+1}², …`;}
+  return mcNum(`What comes next?  <span class="mono"><b>${terms.join(', ')}, ?</b></span>`,ans,why);
+}
+function nlGen(){
+  const type=pick(['seq','seq','seq','grid','op']);
+  if(type==='seq')return nlSeq();
+  if(type==='grid'){
+    const rules=[
+      {f:(a,b)=>a+b,w:'third = first + second'},
+      {f:(a,b)=>a*b,w:'third = first × second'},
+      {f:(a,b)=>2*a+b,w:'third = 2×first + second'},
+      {f:(a,b)=>a*b-a,w:'third = first × second − first'},
+      {f:(a,b)=>a+b+ri(0,0),w:'third = first + second'},
+    ];
+    const r=pick(rules.slice(0,4));
+    const rows=[[ri(2,9),ri(2,9)],[ri(2,9),ri(2,9)],[ri(2,9),ri(2,9)]];
+    const shown=rows.map(([a,b])=>[a,b,r.f(a,b)]);
+    const ans=shown[2][2];
+    const disp=shown.map((row,i)=>i<2?row.join(' | '):row[0]+' | '+row[1]+' | ?').join('<br>');
+    return mcNum(`Each row follows the same rule:<br><span class="mono" style="font-size:1.2rem"><b>${disp}</b></span>`,ans,`Rule: ${r.w}.`);
+  }
+  // hidden operation
+  const ops=[
+    {f:(a,b)=>a*b+a,w:'a ▲ b = a×b + a'},
+    {f:(a,b)=>a*b-b,w:'a ▲ b = a×b − b'},
+    {f:(a,b)=>(a+b)*2,w:'a ▲ b = 2×(a+b)'},
+    {f:(a,b)=>a*a-b,w:'a ▲ b = a² − b'},
+    {f:(a,b)=>a+2*b,w:'a ▲ b = a + 2b'},
+  ];
+  const o=pick(ops);
+  const ex=[[ri(3,9),ri(2,8)],[ri(3,9),ri(2,8)],[ri(3,9),ri(2,8)]];
+  const ans=o.f(ex[2][0],ex[2][1]);
+  const lines=ex.map(([a,b],i)=>i<2?`${a} ▲ ${b} = ${o.f(a,b)}`:`${a} ▲ ${b} = ?`).join('&nbsp;&nbsp;&nbsp;');
+  return mcNum(`Find the hidden operation:<br><span class="mono" style="font-size:1.15rem"><b>${lines}</b></span>`,ans,`${o.w}.`);
+}
+function mcNum(q,ans,why){
+  const set=new Set([ans]);
+  while(set.size<4){const d=ans+pick([-1,1,2,-2,3,-3,4,5,-5,10,-10]);set.add(d);}
+  const opts=shuffle([...set]);
+  return {q,opts:opts.map(String),ans:opts.indexOf(ans),sol:why};
+}
+function nlStart(){S={mode:'nl',i:0,n:12,score:0,rev:[]};nlNext();}
+function nlNext(){
+  if(S.i>=S.n)return summary('NumberLogic');
+  S.q=nlGen();
+  app.innerHTML=`${head('NumberLogic',S.i,S.n)}
+  <div class="card"><p class="q">${S.q.q}</p>
+  ${S.q.opts.map((o,i)=>`<button class="opt" id="opt${i}" onclick="nlAns(${i})"><span class="key">${i+1}</span>${o}</button>`).join('')}
+  <div id="fb"></div></div>`;
+  startTimer(45,()=>nlAns(-1));
+}
+function nlAns(i){
+  clearInterval(S.timer);
+  const ok=i===S.q.ans; if(ok)S.score++;
+  S.rev.push({t:S.q.sol,ok});
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=null);
+  document.getElementById('opt'+S.q.ans)?.classList.add('correct');
+  if(!ok&&i>=0)document.getElementById('opt'+i)?.classList.add('wrong');
+  document.getElementById('fb').innerHTML=`<div class="sol">${i<0?'<b>Time!</b> ':''}${S.q.sol}</div>
+  <button class="btn" style="margin-top:12px" onclick="S.i++;nlNext()">Next →</button>`;
+}
+
+// ================= LIKELIHOOD LIST =================
+// Visual data (histogram / scatter / table), rank 3 statements. +1 / −1 / skip 0.
+function llGen(){
+  for(let t=0;t<200;t++){
+    const type=pick(['hist','scatter','table']);
+    let visual='',intro='',cand=[];
+    if(type==='hist'){
+      const cats=['A','B','C','D','E'];
+      const c=cats.map(()=>ri(3,14)); const N=c.reduce((a,b)=>a+b,0);
+      const max=Math.max(...c);
+      const bars=c.map((v,i)=>{
+        const h=Math.round(v/max*120),x=40+i*88;
+        return `<rect x="${x}" y="${150-h}" width="60" height="${h}" fill="var(--blue)" opacity=".85"/>
+        <text x="${x+30}" y="${145-h}" fill="var(--text)" font-size="13" text-anchor="middle">${c[i]}</text>
+        <text x="${x+30}" y="${170}" fill="var(--dim)" font-size="13" text-anchor="middle">${cats[i]}</text>`;
+      }).join('');
+      visual=`<svg viewBox="0 0 500 180" style="width:100%;max-width:520px">${bars}</svg>`;
+      intro=`The histogram shows how ${N} items are distributed across categories A–E. One item is picked uniformly at random.`;
+      const idx=shuffle([0,1,2,3,4]);
+      cand=[
+        {l:`It is in category ${cats[idx[0]]}`,p:c[idx[0]]/N},
+        {l:`It is in ${cats[idx[1]]} or ${cats[idx[2]]}`,p:(c[idx[1]]+c[idx[2]])/N},
+        {l:`It is NOT in ${cats[idx[3]]}`,p:1-c[idx[3]]/N},
+        {l:`Two independent picks are both in ${cats[idx[4]]}`,p:(c[idx[4]]/N)**2},
+      ];
+    }
+    if(type==='scatter'){
+      const n=ri(24,36);
+      const pts=Array.from({length:n},()=>({x:ri(2,98),y:ri(2,98)}));
+      const mx=v=>30+v/100*280, my=v=>230-v/100*220;
+      const dots=pts.map(p=>`<circle cx="${mx(p.x)}" cy="${my(p.y)}" r="4" fill="var(--accent)" opacity=".85"/>`).join('');
+      visual=`<svg viewBox="0 0 340 260" style="width:100%;max-width:420px">
+        <rect x="30" y="10" width="280" height="220" fill="none" stroke="var(--border)"/>
+        <line x1="${mx(50)}" y1="10" x2="${mx(50)}" y2="230" stroke="var(--border)" stroke-dasharray="4"/>
+        <line x1="30" y1="${my(50)}" x2="310" y2="${my(50)}" stroke="var(--border)" stroke-dasharray="4"/>
+        <text x="30" y="248" fill="var(--dim)" font-size="11">0</text><text x="${mx(50)-6}" y="248" fill="var(--dim)" font-size="11">50</text><text x="298" y="248" fill="var(--dim)" font-size="11">100</text>
+        <text x="8" y="234" fill="var(--dim)" font-size="11">0</text><text x="6" y="${my(50)+4}" fill="var(--dim)" font-size="11">50</text><text x="2" y="18" fill="var(--dim)" font-size="11">100</text>
+        ${dots}</svg>`;
+      intro=`The scatter plot shows ${n} data points (x and y both run 0–100). One point is picked uniformly at random.`;
+      const cnt=f=>pts.filter(f).length;
+      cand=[
+        {l:'Its x-value is above 50',p:cnt(p=>p.x>50)/n},
+        {l:'Its y-value is above 50',p:cnt(p=>p.y>50)/n},
+        {l:'Both its x and y are above 50',p:cnt(p=>p.x>50&&p.y>50)/n},
+        {l:'Its x-value exceeds its y-value',p:cnt(p=>p.x>p.y)/n},
+      ];
+    }
+    if(type==='table'){
+      const prods=['X','Y','Z'];
+      const north=prods.map(()=>ri(5,28)), south=prods.map(()=>ri(5,28));
+      const N=[...north,...south].reduce((a,b)=>a+b,0);
+      const col=i=>north[i]+south[i], rowS=south.reduce((a,b)=>a+b,0);
+      visual=`<table style="max-width:420px"><tr><th></th>${prods.map(p=>`<th>Product ${p}</th>`).join('')}</tr>
+      <tr><td><b>North</b></td>${north.map(v=>`<td class="mono">${v}</td>`).join('')}</tr>
+      <tr><td><b>South</b></td>${south.map(v=>`<td class="mono">${v}</td>`).join('')}</tr></table>`;
+      intro=`The table shows ${N} orders by product and region. One order is picked uniformly at random.`;
+      const j=ri(0,2),k=ri(0,2);
+      cand=[
+        {l:`It is for product ${prods[j]}`,p:col(j)/N},
+        {l:`It is from the South`,p:rowS/N},
+        {l:`It is from the South AND for product ${prods[k]}`,p:south[k]/N},
+        {l:`It is for product ${prods.filter((_,i)=>i!==j).join(' or ')}`,p:1-col(j)/N},
+      ];
+    }
+    // choose 3 statements with clear gaps
+    const subs=shuffle([[0,1,2],[0,1,3],[0,2,3],[1,2,3]]);
+    for(const sub of subs){
+      const ev=sub.map(i=>cand[i]);
+      const sorted=[...ev].sort((a,b)=>b.p-a.p);
+      if(sorted[0].p-sorted[1].p>=0.05&&sorted[1].p-sorted[2].p>=0.05)
+        return {visual,intro,ev,order:sorted.map(s=>s.l)};
+    }
+  }
+}
+function llStart(){S={mode:'ll',i:0,n:10,score:0,rev:[]};llNext();}
+function llNext(){
+  if(S.i>=S.n)return summary('Likelihood List');
+  S.q=llGen(); S.picked=[];
+  const evs=shuffle(S.q.ev.slice());
+  S.disp=evs;
+  app.innerHTML=`${head('Likelihood',S.i,S.n)}
+  <div class="card">
+    <p class="q">${S.q.intro}</p>
+    ${S.q.visual}
+    <p class="tagline" style="margin-top:10px">Rank the statements: click the <b>most likely first</b>, least likely last. +1 correct, −1 wrong, skip = 0.</p>
+    ${evs.map((e,i)=>`<button class="opt" id="ev${i}" onclick="llPick(${i})"><span class="rank" id="rk${i}" style="visibility:hidden">–</span>${e.l}</button>`).join('')}
+    <button class="btn secondary" id="skipbtn" onclick="llScore(false,true)">Skip (0)</button>
+    <div id="fb"></div>
+  </div>`;
+  startTimer(60,()=>llScore(true,false));
+}
+function llPick(i){
+  if(S.picked.includes(i))return;
+  S.picked.push(i);
+  const rk=document.getElementById('rk'+i);
+  rk.style.visibility='visible'; rk.textContent=S.picked.length;
+  if(S.picked.length===3)llScore(false,false);
+}
+function llScore(timeout,skipped){
+  clearInterval(S.timer);
+  const user=S.picked.map(i=>S.disp[i].l);
+  const complete=!timeout&&!skipped&&user.length===3;
+  const ok=complete&&user.every((l,i)=>l===S.q.order[i]);
+  let delta=0, verdict;
+  if(skipped){verdict='Skipped — 0';}
+  else if(ok){delta=1;verdict='✓ Correct order — +1';}
+  else{delta=-1;verdict=(timeout?'Time! ':'')+'✗ Wrong — −1';}
+  S.score+=delta;
+  S.rev.push({t:'Correct: '+S.q.order.join(' > ')+(skipped?' (skipped)':''),ok});
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=null);
+  const skb=document.getElementById('skipbtn'); if(skb)skb.style.display='none';
+  const probs=S.disp.map(e=>`${e.l}: <b>${(e.p*100).toFixed(1)}%</b>`).join('<br>');
+  document.getElementById('fb').innerHTML=`<div class="sol">
+  <b class="${ok?'pass':(skipped?'':'fail')}">${verdict}</b><br>
+  Correct: ${S.q.order.map((l,i)=>(i+1)+'. '+l).join(' &nbsp; ')}<br><br>${probs}</div>
+  <button class="btn" style="margin-top:12px" onclick="S.i++;llNext()">Next →</button>`;
+}
+
+// ================= INTERVALS =================
+function ivGen(){
+  const type=pick(['mul','sq','sqrt','pct','div','sum']);
+  if(type==='mul'){const a=ri(120,980),b=ri(13,97);return{q:`${a} × ${b}`,v:a*b};}
+  if(type==='sq'){const a=ri(34,320);return{q:`${a}²`,v:a*a};}
+  if(type==='sqrt'){const a=ri(1200,90000);return{q:`√${a}`,v:Math.sqrt(a)};}
+  if(type==='pct'){const p=ri(6,89),n=ri(300,9500);return{q:`${p}% of ${n}`,v:p*n/100};}
+  if(type==='div'){const a=ri(2000,90000),b=ri(17,89);return{q:`${a} ÷ ${b}`,v:a/b};}
+  const k=ri(4,6),nums=Array.from({length:k},()=>ri(150,990));
+  return{q:nums.join(' + '),v:nums.reduce((x,y)=>x+y,0)};
+}
+function ivStart(){S={mode:'iv',i:0,n:12,hits:0,widths:[],rev:[]};ivNext();}
+function ivNext(){
+  if(S.i>=S.n)return ivSummary();
+  S.q=ivGen();
+  app.innerHTML=`${head('Intervals',S.i,S.n)}
+  <div class="card">
+    <p class="q">Estimate, then bound it. You score a <b>hit</b> if the true value is inside your interval — tighter intervals are better.</p>
+    <div class="big mono">${S.q.q} = ?</div>
+    <div class="ivgrid">
+      <div><label>Lower bound</label><input type="number" id="lo" step="any" autofocus></div>
+      <div><label>Upper bound</label><input type="number" id="hi" step="any"></div>
+    </div>
+    <button class="btn" onclick="ivSubmit(false)">Submit</button>
+    <div id="fb"></div>
+  </div>`;
+  document.getElementById('lo').focus();
+  document.getElementById('hi').addEventListener('keydown',e=>{if(e.key==='Enter')ivSubmit(false);});
+  startTimer(25,()=>ivSubmit(true));
+}
+function ivSubmit(timeout){
+  clearInterval(S.timer);
+  const lo=parseFloat(document.getElementById('lo').value),hi=parseFloat(document.getElementById('hi').value);
+  const v=S.q.v, vr=Math.round(v*100)/100;
+  let msg,hit=false,w=null;
+  if(timeout&&(isNaN(lo)||isNaN(hi))){msg='<b>Time!</b> No interval submitted — counts as a miss.';}
+  else if(isNaN(lo)||isNaN(hi)||hi<lo){msg='Invalid interval — counts as a miss.';}
+  else{
+    hit=v>=lo&&v<=hi;
+    w=(hi-lo)/Math.abs(v)*100;
+    S.widths.push(w);
+    msg=`${hit?'<b class="pass">✓ Hit</b>':'<b class="fail">✗ Miss</b>'} — true value: <b>${vr.toLocaleString()}</b>. Your interval width: ${w.toFixed(0)}% of the true value.`;
+  }
+  if(hit)S.hits++;
+  S.rev.push({t:`${S.q.q} = ${vr.toLocaleString()} ${hit?'(hit'+(w!=null?', width '+w.toFixed(0)+'%':'')+')':'(miss)'}`,ok:hit});
+  document.getElementById('fb').innerHTML=`<div class="sol">${msg}</div>
+  <button class="btn" style="margin-top:12px" onclick="S.i++;ivNext()">Next →</button>`;
+}
+function ivSummary(){
+  clearInterval(S.timer);
+  const avgW=S.widths.length?S.widths.reduce((a,b)=>a+b,0)/S.widths.length:0;
+  const hr=S.hits/S.n*100;
+  let verdict;
+  if(hr>=85&&avgW<=40)verdict='Excellent calibration — high capture with tight bounds.';
+  else if(hr>=85)verdict='Well calibrated on hits, but your intervals are wide — tighten them for more credit.';
+  else if(hr>=60)verdict='Under-capturing. Widen slightly or center your estimates better.';
+  else verdict='Big miss rate — you are overconfident. Widen your intervals: capture first, tighten later.';
+  app.innerHTML=`<h1>Intervals — Result</h1>
+  <div class="card" style="text-align:center">
+    <div class="statrow">
+      <div class="stat"><div class="v ${hr>=85?'pass':'fail'}">${hr.toFixed(0)}%</div><div class="l">hit rate (target ≈ 90%)</div></div>
+      <div class="stat"><div class="v">${avgW.toFixed(0)}%</div><div class="l">avg width (of true value)</div></div>
+    </div>
+    <p style="color:var(--dim)">${verdict}</p>
+  </div>
+  <div class="card"><h2 style="margin-top:0">Review</h2>${S.rev.map((r,i)=>`<div class="review-item"><span class="${r.ok?'pass':'fail'}">${r.ok?'✓':'✗'}</span> ${r.t}</div>`).join('')}</div>
+  <div class="row" style="margin-bottom:30px"><button class="btn" onclick="ivStart()">Again</button><button class="btn secondary" onclick="home()">Home</button></div>`;
+}
+
+// ================= SHARED SUMMARY =================
+function summary(name){
+  clearInterval(S.timer);
+  const pct=S.score/S.n*100;
+  app.innerHTML=`<h1>${name} — Result</h1>
+  <div class="card" style="text-align:center">
+    <div class="score-big ${pct>=70?'pass':'fail'}">${S.score} / ${S.n}</div>
+    <p style="color:var(--dim)">${pct>=70?'Strong — keep the speed up.':'Review below, then run it again.'}</p>
+  </div>
+  <div class="card"><h2 style="margin-top:0">Review</h2>${S.rev.map((r,i)=>`<div class="review-item"><span class="${r.ok?'pass':'fail'}">${r.ok?'✓':'✗'}</span> Q${i+1}: ${r.t}</div>`).join('')}</div>
+  <div class="row" style="margin-bottom:30px">
+    <button class="btn" onclick="${S.mode}Start()">Again</button>
+    <button class="btn secondary" onclick="home()">Home</button></div>`;
+}
+
+// keyboard 1-4 for MCQ modes
+document.addEventListener('keydown',e=>{
+  if(S.mode==='iv')return;
+  const k=parseInt(e.key);
+  if(k>=1&&k<=4){
+    const btn=document.getElementById(S.mode==='ll'?'ev'+(k-1):'opt'+(k-1));
+    if(btn&&btn.onclick)btn.onclick();
+  }
+});
+// deep-link support: #ob #nl #ll #iv auto-start from the hub
+const starters={ob:obStart,nl:nlStart,ll:llStart,iv:ivStart};
+const h=location.hash.replace('#','');
+if(starters[h])starters[h](); else home();
+</script>
+</body>
+</html>

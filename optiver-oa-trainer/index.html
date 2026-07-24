@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optiver OA Trainer</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d3646;
+  --text:#e6edf3; --dim:#8b949e; --accent:#f5a623; --green:#3fb950; --red:#f85149; --blue:#58a6ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+.wrap{max-width:820px;margin:0 auto;padding:40px 16px}
+h1{font-size:2rem;margin-bottom:6px}
+.sub{color:var(--dim);font-size:1rem;margin-bottom:8px;line-height:1.5}
+.disc{color:var(--dim);font-size:.82rem;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:18px 0 28px;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+a.card{display:block;text-decoration:none;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px;transition:border-color .15s,transform .15s}
+a.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+a.card.wide{grid-column:1/-1}
+.card h2{font-size:1.25rem;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.card p{color:var(--dim);font-size:.92rem;line-height:1.5}
+.pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);color:var(--dim);font-size:.72rem;padding:2px 9px;border-radius:10px;margin-top:10px;margin-right:6px}
+.pill.hot{background:rgba(245,166,35,.15);border-color:var(--accent);color:var(--accent)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+footer{color:var(--dim);font-size:.82rem;margin-top:36px;text-align:center;line-height:1.6}
+footer a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Optiver OA Trainer</h1>
+  <p class="sub">Free, open-source practice for the Optiver online assessment — probability, sequences, likelihood ranking, interval estimation, and orderbook arbitrage. Runs entirely in your browser, no login, no tracking.</p>
+  <p class="disc"><b>Note:</b> This is an unofficial study tool, not affiliated with Optiver. The Beat the Odds format closely follows public descriptions; the reasoning games are reconstructions built to train the same underlying skills. Real assessment UIs and exact timings vary by role and cycle.</p>
+
+  <div class="grid">
+    <a class="card wide" href="beat-the-odds.html">
+      <h2><span class="dot" style="background:var(--accent)"></span>Beat the Odds — Probability</h2>
+      <p>141 verified questions across 11 categories: dice, coins, cards, expected value, gambler's ruin, Bayes, recursion/"game resets", hard multi-concept mixes, and an expert set. Full timed test (15 × 90s, +1/−1, pass at 7), untimed drill mode by category, and a formula cheat sheet. Every answer checked by Monte-Carlo simulation.</p>
+      <span class="pill hot">Most complete</span><span class="pill">Timed test</span><span class="pill">Drill mode</span><span class="pill">Cheat sheet</span>
+    </a>
+    <a class="card" href="reasoning-games.html#ob">
+      <h2><span class="dot" style="background:var(--blue)"></span>Orderbooks</h2>
+      <p>Spot riskless arbitrage across products and their bundles (A, B, C, A+B, A+B+C). Buy at asks, sell at bids, find the max profit — or call no-arb. Procedurally generated, infinite rounds.</p>
+      <span class="pill">10 × 75s</span>
+    </a>
+    <a class="card" href="reasoning-games.html#nl">
+      <h2><span class="dot" style="background:var(--green)"></span>NumberLogic</h2>
+      <p>Sequences (fractions left unsimplified, interleaved series, second differences, Fibonacci-style operations), row-rule grids, and hidden-operation puzzles. Infinite generation.</p>
+      <span class="pill">12 × 45s</span>
+    </a>
+    <a class="card" href="reasoning-games.html#ll">
+      <h2><span class="dot" style="background:#c678dd"></span>Likelihood List</h2>
+      <p>Read a histogram, scatter plot, or table and rank 3 statements from most to least likely. +1 / −1 / skip 0 scoring, with true percentages revealed after each round.</p>
+      <span class="pill">10 × 60s</span>
+    </a>
+    <a class="card" href="reasoning-games.html#iv">
+      <h2><span class="dot" style="background:#e06c75"></span>Intervals</h2>
+      <p>Estimate an arithmetic value and set lower/upper bounds. Scored on capture rate and tightness, with a calibration verdict — train yourself out of overconfidence.</p>
+      <span class="pill">12 × 25s</span>
+    </a>
+  </div>
+
+  <footer>
+    Open source under the MIT License. Contributions welcome — add questions, fix a bug, improve a generator.<br>
+    Built as a study aid. Good luck on your assessment.
+  </footer>
+</div>
+<script>
+// deep-link: reasoning-games.html#ob auto-starts that game
+</script>
+</body>
+</html>
